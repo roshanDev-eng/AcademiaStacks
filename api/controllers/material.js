@@ -39,6 +39,20 @@ export const upvoteValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
 ];
 
+/**
+ * Helper function to fetch paginated materials and total count
+ */
+const fetchPaginatedMaterials = async (filter, skip, finalLimit) => {
+  const [materials, totalMaterials] = await Promise.all([
+    Material.find(filter)
+      .skip(skip)
+      .limit(finalLimit)
+      .sort({createdAt: -1})
+      .lean(),
+    Material.countDocuments(filter)
+  ]);
+  return [materials, totalMaterials];
+};
 
 export const createMaterial = async (req, res, next) => {
   try {
@@ -214,14 +228,8 @@ export const getMaterials = async (req, res, next) => {
       filter.branch = {$in: [req.query.branch]};
     }
 
-    const [materials, totalMaterials] = await Promise.all([
-      Material.find(filter)
-        .skip(skip)
-        .limit(finalLimit)
-        .sort({createdAt: -1})
-        .lean(), 
-      Material.countDocuments(filter)
-    ]);
+    // SECURITY: Fetch paginated materials
+    const [materials, totalMaterials] = await fetchPaginatedMaterials(filter, skip, finalLimit);
 
     const totalPages = Math.ceil(totalMaterials / finalLimit);
 
@@ -264,14 +272,8 @@ export const getMaterialByType = async (req, res, next) => {
       ]
     };
 
-    const [materials, totalMaterials] = await Promise.all([
-      Material.find(filter)
-        .skip(skip)
-        .limit(finalLimit)
-        .sort({createdAt: -1})
-        .lean(),
-      Material.countDocuments(filter)
-    ]);
+    // SECURITY: Fetch paginated materials
+    const [materials, totalMaterials] = await fetchPaginatedMaterials(filter, skip, finalLimit);
 
     const totalPages = Math.ceil(totalMaterials / finalLimit);
 
