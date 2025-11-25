@@ -39,6 +39,18 @@ export const upvoteValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
 ];
 
+//Helper function to fetch paginated materials and total count
+const fetchPaginatedMaterials = async (filter, skip, finalLimit) => {
+  const [materials, totalMaterials] = await Promise.all([
+    Material.find(filter)
+      .skip(skip)
+      .limit(finalLimit)
+      .sort({createdAt: -1})
+      .lean(),
+    Material.countDocuments(filter)
+  ]);
+  return [materials, totalMaterials];
+};
 
 export const createMaterial = async (req, res, next) => {
   try {
@@ -214,12 +226,8 @@ export const getMaterials = async (req, res, next) => {
       filter.branch = {$in: [req.query.branch]};
     }
 
-    const materials = await Material.find(filter)
-      .skip(skip)
-      .limit(finalLimit)
-      .sort({createdAt: -1});
+    const [materials, totalMaterials] = await fetchPaginatedMaterials(filter, skip, finalLimit);
 
-    const totalMaterials = await Material.countDocuments(filter);
     const totalPages = Math.ceil(totalMaterials / finalLimit);
 
     res.status(200).json({
@@ -252,26 +260,17 @@ export const getMaterialByType = async (req, res, next) => {
     const maxLimit = 100;
     const finalLimit = limit > maxLimit ? maxLimit : limit;
 
-    const materials = await Material.find({
+    const filter = {
       materialType: req.params.materialType,
       $or: [
         {verifiedBy: 'verified'}, // Show approved materials
         {verifiedBy: {$exists: false}}, // Show existing materials without verification field (backward compatibility)
         {verifiedBy: 'notVerified'} // Show existing materials with notVerified status
       ]
-    })
-      .skip(skip)
-      .limit(finalLimit)
-      .sort({createdAt: -1});
+    };
 
-    const totalMaterials = await Material.countDocuments({
-      materialType: req.params.materialType,
-      $or: [
-        {verifiedBy: 'verified'}, // Show approved materials
-        {verifiedBy: {$exists: false}}, // Show existing materials without verification field (backward compatibility)
-        {verifiedBy: 'notVerified'} // Show existing materials with notVerified status
-      ]
-    });
+    const [materials, totalMaterials] = await fetchPaginatedMaterials(filter, skip, finalLimit);
+
     const totalPages = Math.ceil(totalMaterials / finalLimit);
 
     res.status(200).json({
